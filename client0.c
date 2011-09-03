@@ -22,11 +22,11 @@ int main(int argc, char *argv[])
     struct sockaddr_in their_addr; /* connector's address information */
 
     if (argc != 2) {
-        fprintf(stderr,"usage: client hostname\n");
+        fprintf(stderr, "usage: client hostname\n");
         exit(1);
     }
 
-    if ((he=gethostbyname(argv[1])) == NULL) {  /* get the host info */
+    if ((he = gethostbyname(argv[1])) == NULL) {  /* get the host info */
         perror("gethostbyname");
         exit(1);
     }
@@ -47,14 +47,14 @@ int main(int argc, char *argv[])
         exit(1);
     }
 
-    if ((numbytes=recv(sockfd, buf, MAXDATASIZE, 0)) == -1) {
+    if ((numbytes = recv(sockfd, buf, MAXDATASIZE, 0)) == -1) {
         perror("recv");
         exit(1);
     }
 
     buf[numbytes] = '\0';
 
-    printf("Received: %s",buf);
+    printf("Received: %s", buf);
 
     close(sockfd);
 

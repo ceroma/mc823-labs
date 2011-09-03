@@ -1,5 +1,3 @@
-
-
 /*
 ** client.c -- a stream socket client demo
 */
@@ -13,8 +11,7 @@
 #include <netinet/in.h>
 #include <sys/socket.h>
 
-#define PORT 3490    /* the port client will be connecting to */
-
+#define PORT 3490       /* the port client will be connecting to */
 #define MAXDATASIZE 100 /* max number of bytes we can get at once */
 
 int main(int argc, char *argv[])
@@ -40,11 +37,12 @@ int main(int argc, char *argv[])
     }
 
     their_addr.sin_family = AF_INET;         /* host byte order */
-    their_addr.sin_port = htons(PORT);     /* short, network byte order */
+    their_addr.sin_port = htons(PORT);       /* short, network byte order */
     their_addr.sin_addr = *((struct in_addr *)he->h_addr);
     bzero(&(their_addr.sin_zero), 8);        /* zero the rest of the struct */
 
-    if (connect(sockfd, (struct sockaddr *)&their_addr, sizeof(struct sockaddr)) == -1) {
+    if (connect(sockfd, (struct sockaddr *)&their_addr, sizeof(struct sockaddr))
+        == -1) {
         perror("connect");
         exit(1);
     }
@@ -62,6 +60,3 @@ int main(int argc, char *argv[])
 
     return 0;
 }
-
-
-

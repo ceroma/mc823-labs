@@ -12,7 +12,6 @@
 #include <sys/wait.h>
 
 #define MYPORT 3490    /* the port users will be connecting to */
-
 #define BACKLOG 10     /* how many pending connections queue will hold */
 
 main()
@@ -32,7 +31,8 @@ main()
     my_addr.sin_addr.s_addr = INADDR_ANY; /* automatically fill with my IP */
     bzero(&(my_addr.sin_zero), 8);        /* zero the rest of the struct */
 
-    if (bind(sockfd, (struct sockaddr *)&my_addr, sizeof(struct sockaddr)) == -1) {
+    if (-1 ==
+        bind(sockfd, (struct sockaddr *)&my_addr, sizeof(struct sockaddr))) {
         perror("bind");
         exit(1);
     }
@@ -42,22 +42,24 @@ main()
         exit(1);
     }
 
-    while(1) {  /* main accept() loop */
+    while (1) {  /* main accept() loop */
         sin_size = sizeof(struct sockaddr_in);
-        if ((new_fd = accept(sockfd, (struct sockaddr *)&their_addr, &sin_size)) == -1) {
+        if ((new_fd = accept(sockfd, (struct sockaddr *)&their_addr, &sin_size))
+            == -1) {
             perror("accept");
             continue;
         }
-        printf("server: got connection from %s\n",inet_ntoa(their_addr.sin_addr));
 
-       if (send(new_fd, "Hello, world!\n", 14, 0) == -1){
-                perror("send");
-                exit(1);
-       }
+        printf(
+            "server: got connection from %s\n",
+            inet_ntoa(their_addr.sin_addr)
+        );
+
+        if (send(new_fd, "Hello, world!\n", 14, 0) == -1) {
+            perror("send");
+            exit(1);
+        }
 
         close(new_fd);  
-
     }
 }
-
-

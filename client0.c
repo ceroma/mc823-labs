@@ -11,8 +11,8 @@
 #include <netinet/in.h>
 #include <sys/socket.h>
 
-#define PORT 3490       /* the port client will be connecting to */
-#define MAXDATASIZE 100 /* max number of bytes we can get at once */
+#define PORT        3490 /* the port client will be connecting to */
+#define MAXDATASIZE 100  /* max number of bytes we can get at once */
 
 int main(int argc, char *argv[])
 {
@@ -47,14 +47,22 @@ int main(int argc, char *argv[])
         exit(1);
     }
 
-    if ((numbytes = recv(sockfd, buf, MAXDATASIZE, 0)) == -1) {
-        perror("recv");
-        exit(1);
+    /* Read stdin until EOF: */
+    while (fgets(buf, MAXDATASIZE, stdin)) {
+        /* Send data to server: */
+        if (send(sockfd, buf, strlen(buf), 0) == -1) {
+            perror("send");
+            exit(1);
+        }
+
+        /* Echo data received from server: */
+        if ((numbytes = recv(sockfd, buf, MAXDATASIZE-1, 0)) == -1) {
+            perror("recv");
+            exit(1);
+        }
+        buf[numbytes] = '\0';
+        fputs(buf, stdout);
     }
-
-    buf[numbytes] = '\0';
-
-    printf("Received: %s", buf);
 
     close(sockfd);
 

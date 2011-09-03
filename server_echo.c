@@ -21,7 +21,7 @@ main()
     int sockfd, new_fd;  /* listen on sock_fd, new connection on new_fd */
     struct sockaddr_in my_addr;    /* my address information */
     struct sockaddr_in their_addr; /* connector's address information */
-    char buf[MAXDATASIZE];
+    char recvline[MAXDATASIZE];
     int sin_size, numbytes;
 
     if ((sockfd = socket(AF_INET, SOCK_STREAM, 0)) == -1) {
@@ -59,8 +59,8 @@ main()
         );
 
         /* Main connection loop - echo received data: */
-        while ((numbytes = recv(new_fd, buf, MAXDATASIZE, 0)) > 0) {
-            if (send(new_fd, buf, numbytes, 0) == -1) {
+        while ((numbytes = recv(new_fd, recvline, MAXDATASIZE, 0)) > 0) {
+            if (send(new_fd, recvline, numbytes, 0) == -1) {
                 perror("send");
                 exit(1);
             }

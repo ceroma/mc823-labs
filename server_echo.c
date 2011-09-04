@@ -23,10 +23,14 @@ main()
     struct sockaddr_in my_addr;    /* my address information */
     struct sockaddr_in their_addr; /* connector's address information */
     char recvline[MAXDATASIZE];
-    int sin_size, numbytes;
+    int sin_size, numbytes, yes;
 
     if ((sockfd = socket(AF_INET, SOCK_STREAM, 0)) == -1) {
         perror("socket");
+        exit(1);
+    }
+    if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int)) == -1) {
+        perror("setsockopt");
         exit(1);
     }
 
@@ -59,19 +63,27 @@ main()
             inet_ntoa(their_addr.sin_addr)
         );
 
-        /* Main connection loop - echo received data: */
-        while ((numbytes = recv(new_fd, recvline, MAXDATASIZE, 0)) > 0) {
-            if (send(new_fd, recvline, numbytes, 0) == -1) {
-                perror("send");
+        /* Maintain connection in a new thread: */
+        if (!fork()) {
+            /* Main connection loop - echo received data: */
+            while ((numbytes = recv(new_fd, recvline, MAXDATASIZE, 0)) > 0) {
+                if (send(new_fd, recvline, numbytes, 0) == -1) {
+                    perror("send");
+                    exit(1);
+                }
+            }
+
+            if (numbytes == -1) {
+                perror("recv");
                 exit(1);
             }
-        }
 
-        if (numbytes == -1) {
-            perror("recv");
-            exit(1);
+            close(new_fd);
+            exit(0);
         }
+        close(new_fd);  /* parent doesn't need this */
 
-        close(new_fd);  
+        /* Clean up all child processes: */
+        while (waitpid(-1, NULL, WNOHANG) > 0);
     }
 }

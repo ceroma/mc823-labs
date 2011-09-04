@@ -19,6 +19,7 @@
 int main(int argc, char *argv[])
 {
     clock_t t1, t2;
+    double time_diff;
     int sockfd, numbytes;  
     int num_sent, num_rcvd;
     int size_sent, max_size;
@@ -95,12 +96,13 @@ int main(int argc, char *argv[])
     }
 
     /* Print statistics: */
+    time_diff = ((double) t2 - (double) t1) / sysconf(_SC_CLK_TCK);
     fprintf(stderr, "Number of lines sent: %d\n", lines_sent);
     fprintf(stderr, "Size of longest line: %d\n", max_size);
     fprintf(stderr, "Number of characters sent: %d\n", num_sent);
     fprintf(stderr, "Number of lines received: %d\n", lines_rcvd);
     fprintf(stderr, "Number of characters received: %d\n", num_rcvd);
-    fprintf(stderr, "Time: %.1lfs", ((double) t2 - (double) t1) / sysconf(_SC_CLK_TCK));
+    fprintf(stderr, "Time: %.1lfs", time_diff);
 
     return 0;
 }

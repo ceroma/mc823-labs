@@ -6,17 +6,23 @@
 #include <stdlib.h>
 #include <errno.h>
 #include <string.h>
+#include <unistd.h>
 #include <netdb.h>
 #include <sys/types.h>
 #include <netinet/in.h>
 #include <sys/socket.h>
+#include <sys/times.h>
 
 #define PORT        3490 /* the port client will be connecting to */
 #define MAXDATASIZE 100  /* max number of bytes we can get at once */
 
 int main(int argc, char *argv[])
 {
+    clock_t t1, t2;
     int sockfd, numbytes;  
+    int num_sent, num_rcvd;
+    int size_sent, max_size;
+    int lines_sent, lines_rcvd;
     char buf[MAXDATASIZE];
     struct hostent *he;
     struct sockaddr_in their_addr; /* connector's address information */
@@ -47,13 +53,26 @@ int main(int argc, char *argv[])
         exit(1);
     }
 
+    /* Start counter: */
+    if ((t1 = times(NULL)) == (clock_t) -1) {
+        perror("times");
+        exit(1);
+    }
+
     /* Read stdin until EOF: */
+    num_sent = num_rcvd = lines_sent = lines_rcvd = max_size = 0;
     while (fgets(buf, MAXDATASIZE, stdin)) {
         /* Send data to server: */
         if (send(sockfd, buf, strlen(buf), 0) == -1) {
             perror("send");
             exit(1);
         }
+
+        /* Statistics - send: */
+        lines_sent++;
+        size_sent = strlen(buf);
+        num_sent += size_sent;
+        max_size = (size_sent > max_size) ? size_sent : max_size;
 
         /* Echo data received from server: */
         if ((numbytes = recv(sockfd, buf, MAXDATASIZE-1, 0)) == -1) {
@@ -62,9 +81,26 @@ int main(int argc, char *argv[])
         }
         buf[numbytes] = '\0';
         fputs(buf, stdout);
+
+        /* Statistics - recv: */
+        lines_rcvd++;
+        num_rcvd += numbytes;
+    }
+    close(sockfd);
+
+    /* Stop counter: */
+    if ((t2 = times(NULL)) == (clock_t) -1) {
+        perror("times");
+        exit(1);
     }
 
-    close(sockfd);
+    /* Print statistics: */
+    fprintf(stderr, "Number of lines sent: %d\n", lines_sent);
+    fprintf(stderr, "Size of longest line: %d\n", max_size);
+    fprintf(stderr, "Number of characters sent: %d\n", num_sent);
+    fprintf(stderr, "Number of lines received: %d\n", lines_rcvd);
+    fprintf(stderr, "Number of characters received: %d\n", num_rcvd);
+    fprintf(stderr, "Time: %.1lfs", ((double) t2 - (double) t1) / sysconf(_SC_CLK_TCK));
 
     return 0;
 }

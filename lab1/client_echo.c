@@ -14,7 +14,7 @@
 #include <sys/times.h>
 
 #define PORT        3490 /* the port client will be connecting to */
-#define MAXDATASIZE 100  /* max number of bytes we can get at once */
+#define MAXDATASIZE 256  /* max number of bytes we can get at once */
 
 int main(int argc, char *argv[])
 {

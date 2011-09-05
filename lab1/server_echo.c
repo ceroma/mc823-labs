@@ -15,7 +15,7 @@
 
 #define MYPORT      3490 /* the port users will be connecting to */
 #define BACKLOG     10   /* how many pending connections queue will hold */
-#define MAXDATASIZE 100  /* max number of bytes we can get at once */
+#define MAXDATASIZE 256  /* max number of bytes we can get at once */
 
 main()
 {

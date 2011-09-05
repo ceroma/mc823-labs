@@ -102,7 +102,7 @@ int main(int argc, char *argv[])
     fprintf(stderr, "Number of characters sent: %d\n", num_sent);
     fprintf(stderr, "Number of lines received: %d\n", lines_rcvd);
     fprintf(stderr, "Number of characters received: %d\n", num_rcvd);
-    fprintf(stderr, "Time: %.1lfs", time_diff);
+    fprintf(stderr, "Time: %.1lfs\n", time_diff);
 
     return 0;
 }

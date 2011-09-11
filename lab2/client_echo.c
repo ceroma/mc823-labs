@@ -20,13 +20,14 @@ int main(int argc, char *argv[])
 {
     clock_t t1, t2;
     double time_diff;
-    int sockfd, numbytes;  
+    int sockfd;
     int num_sent, num_rcvd;
     int size_sent, max_size;
     int lines_sent, lines_rcvd;
     char buf[MAXDATASIZE];
     struct hostent *he;
     struct sockaddr_in their_addr; /* connector's address information */
+    FILE *rsock, *wsock;
 
     if (argc != 2) {
         fprintf(stderr, "usage: client hostname\n");
@@ -54,6 +55,18 @@ int main(int argc, char *argv[])
         exit(1);
     }
 
+    /* Associate a write stream with the socket file descriptor: */
+    if ((wsock = fdopen(sockfd, "w")) == NULL) {
+        perror("fdopen");
+        exit(1);
+    }
+
+    /* Associate a read stream with the socket file descriptor: */
+    if ((rsock = fdopen(sockfd, "r")) == NULL) {
+        perror("fdopen");
+        exit(1);
+    }
+
     /* Start counter: */
     if ((t1 = times(NULL)) == (clock_t) -1) {
         perror("times");
@@ -64,10 +77,11 @@ int main(int argc, char *argv[])
     num_sent = num_rcvd = lines_sent = lines_rcvd = max_size = 0;
     while (fgets(buf, MAXDATASIZE, stdin)) {
         /* Send data to server: */
-        if (send(sockfd, buf, strlen(buf), 0) == -1) {
-            perror("send");
+        if (fputs(buf, wsock) == EOF) {
+            fprintf(stderr, "fputs: error writing to socket\n");
             exit(1);
         }
+        fflush(wsock);
 
         /* Statistics - send: */
         lines_sent++;
@@ -76,16 +90,13 @@ int main(int argc, char *argv[])
         max_size = (size_sent > max_size) ? size_sent : max_size;
 
         /* Echo data received from server: */
-        if ((numbytes = recv(sockfd, buf, MAXDATASIZE-1, 0)) == -1) {
-            perror("recv");
-            exit(1);
-        }
-        buf[numbytes] = '\0';
+        fgets(buf, MAXDATASIZE, rsock);
+        fflush(rsock);
         fputs(buf, stdout);
 
         /* Statistics - recv: */
         lines_rcvd++;
-        num_rcvd += numbytes;
+        num_rcvd += strlen(buf);
     }
     close(sockfd);
 

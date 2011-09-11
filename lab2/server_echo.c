@@ -24,7 +24,8 @@ main()
     struct sockaddr_in their_addr; /* connector's address information */
     char recvline[MAXDATASIZE];
     int num_rcvd, lines_rcvd;
-    int sin_size, numbytes, yes;
+    int sin_size, yes;
+    FILE *rsock, *wsock;
 
     if ((sockfd = socket(AF_INET, SOCK_STREAM, 0)) == -1) {
         perror("socket");
@@ -64,24 +65,32 @@ main()
             inet_ntoa(their_addr.sin_addr)
         );
 
+        /* Associate a write stream with the socket file descriptor: */
+        if ((wsock = fdopen(new_fd, "w")) == NULL) {
+            perror("fdopen");
+            exit(1);
+        }
+
+        /* Associate a read stream with the socket file descriptor: */
+        if ((rsock = fdopen(new_fd, "r")) == NULL) {
+            perror("fdopen");
+            exit(1);
+        }
+
         /* Maintain connection in a new thread: */
         if (!fork()) {
             /* Main connection loop - echo received data: */
             num_rcvd = lines_rcvd = 0;
-            while ((numbytes = recv(new_fd, recvline, MAXDATASIZE, 0)) > 0) {
+            while (fgets(recvline, MAXDATASIZE, rsock)) {
+                fflush(rsock);
                 lines_rcvd++;
-                num_rcvd += numbytes;
-                if (send(new_fd, recvline, numbytes, 0) == -1) {
-                    perror("send");
+                num_rcvd += strlen(recvline);
+                if (fputs(recvline, wsock) == EOF) {
+                    fprintf(stderr, "fputs: error writing to socket\n");
                     exit(1);
                 }
+                fflush(wsock);
             }
-
-            if (numbytes == -1) {
-                perror("recv");
-                exit(1);
-            }
-
             close(new_fd);
 
             /* Print statistics: */

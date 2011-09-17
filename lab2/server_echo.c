@@ -82,16 +82,25 @@ main()
             /* Main connection loop - echo received data: */
             num_rcvd = lines_rcvd = 0;
             while (fgets(recvline, MAXDATASIZE, rsock)) {
-                fflush(rsock);
+                if (fflush(rsock)) {
+                    perror("fflush");
+                    exit(1);
+                }
                 lines_rcvd++;
                 num_rcvd += strlen(recvline);
                 if (fputs(recvline, wsock) == EOF) {
                     fprintf(stderr, "fputs: error writing to socket\n");
                     exit(1);
                 }
-                fflush(wsock);
+                if (fflush(wsock)) {
+                    perror("fflush");
+                    exit(1);
+                }
             }
-            close(new_fd);
+            if (close(new_fd)) {
+                perror("close");
+                exit(1);
+            }
 
             /* Print statistics: */
             fprintf(stderr, "Number of lines received: %d\n", lines_rcvd);

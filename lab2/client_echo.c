@@ -12,6 +12,7 @@
 #include <netinet/in.h>
 #include <sys/socket.h>
 #include <sys/times.h>
+#include <sys/wait.h>
 
 #define PORT        3490 /* the port client will be connecting to */
 #define MAXDATASIZE 256  /* max number of bytes we can get at once */
@@ -55,10 +56,52 @@ int main(int argc, char *argv[])
         exit(1);
     }
 
-    /* Associate a write stream with the socket file descriptor: */
-    if ((wsock = fdopen(sockfd, "w")) == NULL) {
-        perror("fdopen");
+    /* Start counter: */
+    if ((t1 = times(NULL)) == (clock_t) -1) {
+        perror("times");
         exit(1);
+    }
+
+    /* Child process sends stream, parent reads: */
+    if (!fork()) {
+        /* Associate a write stream with the socket file descriptor: */
+        if ((wsock = fdopen(sockfd, "w")) == NULL) {
+            perror("fdopen");
+            exit(1);
+        }
+
+        /* Read stdin until EOF: */
+        num_sent = lines_sent = max_size = 0;
+        while (fgets(buf, MAXDATASIZE, stdin)) {
+            /* Send data to server: */
+            if (fputs(buf, wsock) == EOF) {
+                fprintf(stderr, "fputs: error writing to socket\n");
+                exit(1);
+            }
+            if (fflush(wsock)) {
+                perror("fflush");
+                exit(1);
+            }
+
+            /* Statistics - send: */
+            lines_sent++;
+            size_sent = strlen(buf);
+            num_sent += size_sent;
+            max_size = (size_sent > max_size) ? size_sent : max_size;
+        }
+
+        /* Disallow further transmissions: */
+        if (shutdown(sockfd, SHUT_WR) == -1) {
+            perror("shutdown");
+            exit(1);
+        }
+
+        /* Print statistics: */
+        fprintf(stderr, "Number of lines sent: %d\n", lines_sent);
+        fprintf(stderr, "Size of longest line: %d\n", max_size);
+        fprintf(stderr, "Number of characters sent: %d\n", num_sent);
+
+        return 0;
     }
 
     /* Associate a read stream with the socket file descriptor: */
@@ -67,38 +110,34 @@ int main(int argc, char *argv[])
         exit(1);
     }
 
-    /* Start counter: */
-    if ((t1 = times(NULL)) == (clock_t) -1) {
-        perror("times");
-        exit(1);
-    }
-
-    /* Read stdin until EOF: */
-    num_sent = num_rcvd = lines_sent = lines_rcvd = max_size = 0;
-    while (fgets(buf, MAXDATASIZE, stdin)) {
-        /* Send data to server: */
-        if (fputs(buf, wsock) == EOF) {
-            fprintf(stderr, "fputs: error writing to socket\n");
+    /* Echo data received from server: */
+    num_rcvd = lines_rcvd = 0;
+    while(fgets(buf, MAXDATASIZE, rsock)) {
+        if (fflush(rsock)) {
+            perror("fflush");
             exit(1);
         }
-        fflush(wsock);
-
-        /* Statistics - send: */
-        lines_sent++;
-        size_sent = strlen(buf);
-        num_sent += size_sent;
-        max_size = (size_sent > max_size) ? size_sent : max_size;
-
-        /* Echo data received from server: */
-        fgets(buf, MAXDATASIZE, rsock);
-        fflush(rsock);
         fputs(buf, stdout);
 
         /* Statistics - recv: */
         lines_rcvd++;
         num_rcvd += strlen(buf);
     }
-    close(sockfd);
+
+    /* Print statistics: */
+    fprintf(stderr, "Number of lines received: %d\n", lines_rcvd);
+    fprintf(stderr, "Number of characters received: %d\n", num_rcvd);
+
+    /* Wait for child process: */
+    if (wait(NULL) == -1) {
+        perror("wait");
+        exit(1);
+    }
+
+    if (close(sockfd)) {
+        perror("close");
+        exit(1);
+    }
 
     /* Stop counter: */
     if ((t2 = times(NULL)) == (clock_t) -1) {
@@ -108,11 +147,6 @@ int main(int argc, char *argv[])
 
     /* Print statistics: */
     time_diff = ((double) t2 - (double) t1) / sysconf(_SC_CLK_TCK);
-    fprintf(stderr, "Number of lines sent: %d\n", lines_sent);
-    fprintf(stderr, "Size of longest line: %d\n", max_size);
-    fprintf(stderr, "Number of characters sent: %d\n", num_sent);
-    fprintf(stderr, "Number of lines received: %d\n", lines_rcvd);
-    fprintf(stderr, "Number of characters received: %d\n", num_rcvd);
     fprintf(stderr, "Time: %.1lfs\n", time_diff);
 
     return 0;

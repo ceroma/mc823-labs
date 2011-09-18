@@ -107,7 +107,10 @@ main()
             fprintf(stderr, "Number of characters received: %d\n", num_rcvd);
             exit(0);
         }
-        close(new_fd);  /* parent doesn't need this */
+        if (close(new_fd)) {  /* parent doesn't need this */
+            perror("close");
+            exit(1);
+        }
 
         /* Clean up all child processes: */
         while (waitpid(-1, NULL, WNOHANG) > 0);

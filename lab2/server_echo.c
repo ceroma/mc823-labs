@@ -97,7 +97,7 @@ main()
                     exit(1);
                 }
             }
-            if (close(new_fd)) {
+            if (close(new_fd) == -1) {
                 perror("close");
                 exit(1);
             }
@@ -107,7 +107,7 @@ main()
             fprintf(stderr, "Number of characters received: %d\n", num_rcvd);
             exit(0);
         }
-        if (close(new_fd)) {  /* parent doesn't need this */
+        if (close(new_fd) == -1) {  /* parent doesn't need this */
             perror("close");
             exit(1);
         }

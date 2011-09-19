@@ -134,7 +134,7 @@ int main(int argc, char *argv[])
         exit(1);
     }
 
-    if (close(sockfd)) {
+    if (close(sockfd) == -1) {
         perror("close");
         exit(1);
     }

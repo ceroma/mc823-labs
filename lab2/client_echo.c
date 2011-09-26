@@ -78,7 +78,7 @@ int main(int argc, char *argv[])
                 fprintf(stderr, "fputs: error writing to socket\n");
                 exit(1);
             }
-            if (fflush(wsock)) {
+            if (fflush(wsock) == EOF) {
                 perror("fflush");
                 exit(1);
             }
@@ -113,7 +113,7 @@ int main(int argc, char *argv[])
     /* Echo data received from server: */
     num_rcvd = lines_rcvd = 0;
     while(fgets(buf, MAXDATASIZE, rsock)) {
-        if (fflush(rsock)) {
+        if (fflush(rsock) == EOF) {
             perror("fflush");
             exit(1);
         }

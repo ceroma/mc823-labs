@@ -95,6 +95,7 @@ int main(int argc, char *argv[])
             perror("shutdown");
             exit(1);
         }
+        free(wsock);
 
         /* Print statistics: */
         fprintf(stderr, "Number of lines sent: %d\n", lines_sent);
@@ -138,6 +139,7 @@ int main(int argc, char *argv[])
         perror("close");
         exit(1);
     }
+    free(rsock);
 
     /* Stop counter: */
     if ((t2 = times(NULL)) == (clock_t) -1) {

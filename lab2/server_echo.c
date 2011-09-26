@@ -101,6 +101,8 @@ main()
                 perror("close");
                 exit(1);
             }
+            free(rsock);
+            free(wsock);
 
             /* Print statistics: */
             fprintf(stderr, "Number of lines received: %d\n", lines_rcvd);

@@ -34,6 +34,7 @@ int main(void)
     my_addr.sin_port = htons(MYPORT);     // short, network byte order
     my_addr.sin_addr.s_addr = INADDR_ANY; // automatically fill with my IP
     memset(&(my_addr.sin_zero), '\0', 8); // zero the rest of the struct
+    addr_len = sizeof(struct sockaddr);
 
     if (-1 ==
         bind(sockfd, (struct sockaddr *)&my_addr, sizeof(struct sockaddr))) {
@@ -41,13 +42,20 @@ int main(void)
         exit(1);
     }
 
-    addr_len = sizeof(struct sockaddr);
-    if ((numbytes = recvfrom(sockfd, buf, MAXBUFLEN-1, 0,
-        (struct sockaddr *)&their_addr, &addr_len)) == -1) {
-        perror("recvfrom");
-        exit(1);
+    /* Main connection loop - echo received data until end-of-transmission: */
+    while ((numbytes = recvfrom(sockfd, buf, MAXBUFLEN-1, 0,
+        (struct sockaddr *)&their_addr, &addr_len)) != 0) {
+        if (numbytes == -1) {
+            perror("recvfrom");
+            exit(1);
+        }
+
+        if ((numbytes = sendto(sockfd, buf, numbytes, 0,
+            (struct sockaddr *)&their_addr, sizeof(struct sockaddr))) == -1) {
+            perror("sendto");
+            exit(1);
+        }
     }
-    buf[numbytes] = '\0';
 
     fprintf(stderr, "Got packet from %s\n", inet_ntoa(their_addr.sin_addr));
     fprintf(stderr, "Number of bytes received: %d\n", numbytes);

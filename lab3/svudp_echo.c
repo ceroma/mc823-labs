@@ -64,44 +64,50 @@ int main(void)
         exit(1);
     }
 
-    /* Main connection loop - echo received data until end-of-transmission: */
-    num_sent = num_rcvd = packets_sent = packets_rcvd = 0;
-    while ((numbytes = recvfrom(sockfd, buf, MAXBUFLEN-1, 0,
-        (struct sockaddr *)&their_addr, &addr_len)) != 0) {
-        if (numbytes == -1) {
-            /* Interrupted by a signal: */
-            if (errno == EINTR) { break; }
+    while (1) {
+        /* Main connection loop - echo data until end-of-transmission: */
+        num_sent = num_rcvd = packets_sent = packets_rcvd = 0;
+        while ((numbytes = recvfrom(sockfd, buf, MAXBUFLEN-1, 0,
+            (struct sockaddr *)&their_addr, &addr_len)) != 0) {
+            if (numbytes == -1) {
+                /* Interrupted by a signal: */
+                if (errno == EINTR) { break; }
 
-            perror("recvfrom");
-            exit(1);
+                perror("recvfrom");
+                exit(1);
+            }
+
+            /* Statistics - recv: */
+            packets_rcvd++;
+            num_rcvd += numbytes;
+
+            /* Echo data to client: */
+            if (-1 ==
+                (numbytes = sendto(sockfd, buf, numbytes, 0,
+                (struct sockaddr *)&their_addr, sizeof(struct sockaddr)))) {
+                perror("sendto");
+                exit(1);
+            }
+
+            /* Statistics - send: */
+            packets_sent++;
+            num_sent += numbytes;
+
+            /* Set timeout alarm: */
+            alarm(2);
         }
 
-        /* Statistics - recv: */
-        packets_rcvd++;
-        num_rcvd += numbytes;
+        /* Turn alarm off: */
+        alarm(0);
 
-        /* Echo data to client: */
-        if ((numbytes = sendto(sockfd, buf, numbytes, 0,
-            (struct sockaddr *)&their_addr, sizeof(struct sockaddr))) == -1) {
-            perror("sendto");
-            exit(1);
-        }
-
-        /* Statistics - send: */
-        packets_sent++;
-        num_sent += numbytes;
-
-        /* Set timeout alarm: */
-        alarm(2);
+        /* Print statistics: */
+        fprintf(stderr, "Packets from: %s\n", inet_ntoa(their_addr.sin_addr));
+        fprintf(stderr, "Number of packets sent: %d\n", packets_sent);
+        fprintf(stderr, "Number of bytes sent: %d\n", num_sent);
+        fprintf(stderr, "Number of packets received: %d\n", packets_rcvd);
+        fprintf(stderr, "Number of bytes received: %d\n", num_rcvd);
     }
     close(sockfd);
-
-    /* Print statistics: */
-    fprintf(stderr, "Got packets from %s\n", inet_ntoa(their_addr.sin_addr));
-    fprintf(stderr, "Number of packets sent: %d\n", packets_sent);
-    fprintf(stderr, "Number of bytes sent: %d\n", num_sent);
-    fprintf(stderr, "Number of packets received: %d\n", packets_rcvd);
-    fprintf(stderr, "Number of bytes received: %d\n", num_rcvd);
 
     return 0;
 }

@@ -7,6 +7,7 @@
 #include <unistd.h>
 #include <errno.h>
 #include <string.h>
+#include <sys/times.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -18,6 +19,8 @@
 int main(int argc, char *argv[])
 {
     int sockfd;
+    clock_t t1, t2;
+    double time_diff;
     struct sockaddr_in their_addr; // connector's address information
     struct hostent *he;
     int numbytes;
@@ -42,13 +45,28 @@ int main(int argc, char *argv[])
     their_addr.sin_addr = *((struct in_addr *)he->h_addr);
     memset(&(their_addr.sin_zero), '\0', 8); // zero the rest of the struct
 
+    /* Start counter: */
+    if ((t1 = times(NULL)) == (clock_t) -1) {
+        perror("times");
+        exit(1);
+    }
+
     if ((numbytes = sendto(sockfd, argv[2], strlen(argv[2]), 0,
         (struct sockaddr *)&their_addr, sizeof(struct sockaddr))) == -1) {
         perror("sendto");
         exit(1);
     }
 
-    printf("sent %d bytes to %s\n", numbytes, inet_ntoa(their_addr.sin_addr));
+    /* Stop counter: */
+    if ((t2 = times(NULL)) == (clock_t) -1) {
+        perror("times");
+        exit(1);
+    }
+
+    /* Print statistics: */
+    time_diff = ((double) t2 - (double) t1) / sysconf(_SC_CLK_TCK);
+    fprintf(stderr, "Number of bytes sent: %d\n", numbytes);
+    fprintf(stderr, "Time: %.1lfs\n", time_diff);
 
     close(sockfd);
 

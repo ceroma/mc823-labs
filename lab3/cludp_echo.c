@@ -31,8 +31,9 @@ int main(int argc, char *argv[])
     clock_t t1, t2;
     double time_diff;
     int sockfd, numbytes;
+    int num_sent, num_rcvd;
+    int size_sent, max_size;
     int packets_sent, packets_rcvd;
-    int num_sent, num_rcvd, max_size;
     char buf[MAXBUFLEN];
     struct sigaction action;
     struct sockaddr_in their_addr; // connector's address information
@@ -72,6 +73,12 @@ int main(int argc, char *argv[])
     memset(&(their_addr.sin_zero), '\0', 8); // zero the rest of the struct
     addr_len = sizeof(struct sockaddr);
 
+    if (connect(sockfd, (struct sockaddr *)&their_addr, sizeof(struct sockaddr))
+        == -1) {
+        perror("connect");
+        exit(1);
+    }
+
     /* Start counter: */
     if ((t1 = times(NULL)) == (clock_t) -1) {
         perror("times");
@@ -82,25 +89,24 @@ int main(int argc, char *argv[])
     num_sent = num_rcvd = packets_sent = packets_rcvd = max_size = 0;
     while (fgets(buf, MAXBUFLEN, stdin)) {
         /* Send data to server: */
-        if ((numbytes = sendto(sockfd, buf, strlen(buf), 0,
-            (struct sockaddr *)&their_addr, sizeof(struct sockaddr))) == -1) {
-            perror("sendto");
+        if (send(sockfd, buf, strlen(buf), 0) == -1) {
+            perror("send");
             exit(1);
         }
 
         /* Statistics - send: */
         packets_sent++;
-        num_sent += numbytes;
-        max_size = (numbytes > max_size) ? numbytes : max_size;
+        size_sent = strlen(buf);
+        num_sent += size_sent;
+        max_size = (size_sent > max_size) ? size_sent : max_size;
 
         /* Echo data received from server: */
         alarm(2);
-        if ((numbytes = recvfrom(sockfd, buf, MAXBUFLEN-1, 0,
-            (struct sockaddr *)&their_addr, &addr_len)) == -1) {
+        if ((numbytes = recv(sockfd, buf, MAXBUFLEN-1, 0)) == -1) {
             /* Interrupted by a signal: */
             if (errno == EINTR) { break; }
 
-            perror("recvfrom");
+            perror("recv");
             exit(1);
         }
         buf[numbytes] = '\0';
@@ -112,9 +118,8 @@ int main(int argc, char *argv[])
     }
 
     /* Send end-of-transmission signal to server: */
-    if ((numbytes = sendto(sockfd, NULL, 0, 0,
-        (struct sockaddr *)&their_addr, sizeof(struct sockaddr))) == -1) {
-        perror("sendto");
+    if (send(sockfd, NULL, 0, 0) == -1) {
+        perror("send");
         exit(1);
     }
     close(sockfd);

@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <errno.h>
+#include <signal.h>
 #include <string.h>
 #include <sys/times.h>
 #include <sys/types.h>
@@ -17,6 +18,14 @@
 #define MAXBUFLEN  256  // max number of bytes we can get at once
 #define SERVERPORT 4950 // the port users will be connecting to
 
+/**
+ * If SIGALRM was detected, server has been waiting a packet for too long and
+ * should terminate the current connection.
+ */
+void catch_alarm(int sig) {
+    fprintf(stderr, "Connection timed out!\n");
+}
+
 int main(int argc, char *argv[])
 {
     clock_t t1, t2;
@@ -25,12 +34,25 @@ int main(int argc, char *argv[])
     int packets_sent, packets_rcvd;
     int num_sent, num_rcvd, max_size;
     char buf[MAXBUFLEN];
+    struct sigaction action;
     struct sockaddr_in their_addr; // connector's address information
     struct hostent *he;
     socklen_t addr_len;
 
     if (argc != 2) {
         fprintf(stderr, "usage: talker hostname\n");
+        exit(1);
+    }
+
+    /* Establish a handler for SIGALRM signals: */
+    action.sa_flags = 0;
+    action.sa_handler = catch_alarm;
+    if (sigemptyset(&(action.sa_mask)) == -1) {
+        perror("sigemptyset");
+        exit(1);
+    }
+    if (sigaction(SIGALRM, &action, NULL) == -1) {
+        perror("sigaction");
         exit(1);
     }
 
@@ -72,8 +94,12 @@ int main(int argc, char *argv[])
         max_size = (numbytes > max_size) ? numbytes : max_size;
 
         /* Echo data received from server: */
+        alarm(2);
         if ((numbytes = recvfrom(sockfd, buf, MAXBUFLEN-1, 0,
             (struct sockaddr *)&their_addr, &addr_len)) == -1) {
+            /* Interrupted by a signal: */
+            if (errno == EINTR) { break; }
+
             perror("recvfrom");
             exit(1);
         }

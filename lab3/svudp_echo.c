@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <errno.h>
+#include <signal.h>
 #include <string.h>
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -15,8 +16,17 @@
 #define MAXBUFLEN 256
 #define MYPORT    4950 // the port users will be connecting to
 
+/**
+ * If SIGALRM was detected, server has been waiting a packet for too long and
+ * should terminate the current connection.
+ */
+void catch_alarm(int sig) {
+    fprintf(stderr, "Connection timed out!\n");
+}
+
 int main(void)
 {
+    struct sigaction action;
     struct sockaddr_in my_addr;    // my address information
     struct sockaddr_in their_addr; // connector's address information
     socklen_t addr_len;
@@ -24,6 +34,18 @@ int main(void)
     int num_sent, num_rcvd;
     int packets_sent, packets_rcvd;
     char buf[MAXBUFLEN];
+
+    /* Establish a handler for SIGALRM signals: */
+    action.sa_flags = 0;
+    action.sa_handler = catch_alarm;
+    if (sigemptyset(&(action.sa_mask)) == -1) {
+        perror("sigemptyset");
+        exit(1);
+    }
+    if (sigaction(SIGALRM, &action, NULL) == -1) {
+        perror("sigaction");
+        exit(1);
+    }
 
     if ((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) == -1) {
         perror("socket");
@@ -47,6 +69,9 @@ int main(void)
     while ((numbytes = recvfrom(sockfd, buf, MAXBUFLEN-1, 0,
         (struct sockaddr *)&their_addr, &addr_len)) != 0) {
         if (numbytes == -1) {
+            /* Interrupted by a signal: */
+            if (errno == EINTR) { break; }
+
             perror("recvfrom");
             exit(1);
         }
@@ -65,6 +90,9 @@ int main(void)
         /* Statistics - send: */
         packets_sent++;
         num_sent += numbytes;
+
+        /* Set timeout alarm: */
+        alarm(2);
     }
     close(sockfd);
 

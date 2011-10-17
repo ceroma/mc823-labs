@@ -38,7 +38,6 @@ int main(int argc, char *argv[])
     struct sigaction action;
     struct sockaddr_in their_addr; // connector's address information
     struct hostent *he;
-    socklen_t addr_len;
 
     if (argc != 2) {
         fprintf(stderr, "usage: talker hostname\n");
@@ -71,7 +70,6 @@ int main(int argc, char *argv[])
     their_addr.sin_port = htons(SERVERPORT); // short, network byte order
     their_addr.sin_addr = *((struct in_addr *)he->h_addr);
     memset(&(their_addr.sin_zero), '\0', 8); // zero the rest of the struct
-    addr_len = sizeof(struct sockaddr);
 
     if (connect(sockfd, (struct sockaddr *)&their_addr, sizeof(struct sockaddr))
         == -1) {
@@ -120,6 +118,14 @@ int main(int argc, char *argv[])
     /* Send end-of-transmission signal to server: */
     if (send(sockfd, NULL, 0, 0) == -1) {
         perror("send");
+        exit(1);
+    }
+
+    /* Unset peer name: */
+    their_addr.sin_family = AF_UNSPEC;
+    if (connect(sockfd, (struct sockaddr *)&their_addr, sizeof(struct sockaddr))
+        == -1) {
+        perror("connect");
         exit(1);
     }
     close(sockfd);

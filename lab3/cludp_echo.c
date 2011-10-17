@@ -31,13 +31,13 @@ int main(int argc, char *argv[])
     clock_t t1, t2;
     double time_diff;
     int sockfd, numbytes;
-    int num_sent, num_rcvd;
-    int size_sent, max_size;
     int packets_sent, packets_rcvd;
+    int num_sent, num_rcvd, max_size;
     char buf[MAXBUFLEN];
     struct sigaction action;
     struct sockaddr_in their_addr; // connector's address information
     struct hostent *he;
+    socklen_t addr_len;
 
     if (argc != 2) {
         fprintf(stderr, "usage: talker hostname\n");
@@ -70,12 +70,7 @@ int main(int argc, char *argv[])
     their_addr.sin_port = htons(SERVERPORT); // short, network byte order
     their_addr.sin_addr = *((struct in_addr *)he->h_addr);
     memset(&(their_addr.sin_zero), '\0', 8); // zero the rest of the struct
-
-    if (connect(sockfd, (struct sockaddr *)&their_addr, sizeof(struct sockaddr))
-        == -1) {
-        perror("connect");
-        exit(1);
-    }
+    addr_len = sizeof(struct sockaddr);
 
     /* Start counter: */
     if ((t1 = times(NULL)) == (clock_t) -1) {
@@ -87,24 +82,25 @@ int main(int argc, char *argv[])
     num_sent = num_rcvd = packets_sent = packets_rcvd = max_size = 0;
     while (fgets(buf, MAXBUFLEN, stdin)) {
         /* Send data to server: */
-        if (send(sockfd, buf, strlen(buf), 0) == -1) {
-            perror("send");
+        if ((numbytes = sendto(sockfd, buf, strlen(buf), 0,
+            (struct sockaddr *)&their_addr, sizeof(struct sockaddr))) == -1) {
+            perror("sendto");
             exit(1);
         }
 
         /* Statistics - send: */
         packets_sent++;
-        size_sent = strlen(buf);
-        num_sent += size_sent;
-        max_size = (size_sent > max_size) ? size_sent : max_size;
+        num_sent += numbytes;
+        max_size = (numbytes > max_size) ? numbytes : max_size;
 
         /* Echo data received from server: */
         alarm(2);
-        if ((numbytes = recv(sockfd, buf, MAXBUFLEN-1, 0)) == -1) {
+        if ((numbytes = recvfrom(sockfd, buf, MAXBUFLEN-1, 0,
+            (struct sockaddr *)&their_addr, &addr_len)) == -1) {
             /* Interrupted by a signal: */
             if (errno == EINTR) { break; }
 
-            perror("recv");
+            perror("recvfrom");
             exit(1);
         }
         buf[numbytes] = '\0';
@@ -116,16 +112,9 @@ int main(int argc, char *argv[])
     }
 
     /* Send end-of-transmission signal to server: */
-    if (send(sockfd, NULL, 0, 0) == -1) {
-        perror("send");
-        exit(1);
-    }
-
-    /* Unset peer name: */
-    their_addr.sin_family = AF_UNSPEC;
-    if (connect(sockfd, (struct sockaddr *)&their_addr, sizeof(struct sockaddr))
-        == -1) {
-        perror("connect");
+    if ((numbytes = sendto(sockfd, NULL, 0, 0,
+        (struct sockaddr *)&their_addr, sizeof(struct sockaddr))) == -1) {
+        perror("sendto");
         exit(1);
     }
     close(sockfd);

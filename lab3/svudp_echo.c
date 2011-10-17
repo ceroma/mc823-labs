@@ -47,58 +47,82 @@ int main(void)
         exit(1);
     }
 
-    if ((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) == -1) {
-        perror("socket");
-        exit(1);
-    }
-
     my_addr.sin_family = AF_INET;         // host byte order
     my_addr.sin_port = htons(MYPORT);     // short, network byte order
     my_addr.sin_addr.s_addr = INADDR_ANY; // automatically fill with my IP
     memset(&(my_addr.sin_zero), '\0', 8); // zero the rest of the struct
     addr_len = sizeof(struct sockaddr);
 
-    if (-1 ==
-        bind(sockfd, (struct sockaddr *)&my_addr, sizeof(struct sockaddr))) {
-        perror("bind");
-        exit(1);
-    }
-
     while (1) {
+        if ((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) == -1) {
+            perror("socket");
+            exit(1);
+        }
+
+        if (bind(sockfd,
+            (struct sockaddr *)&my_addr, sizeof(struct sockaddr)) == -1) {
+            perror("bind");
+            exit(1);
+        }
+
+        /* Receive first transmission: */
+        if ((numbytes = recvfrom(sockfd, buf, MAXBUFLEN-1, 0,
+            (struct sockaddr *)&their_addr, &addr_len)) == -1) {
+            perror("recvfrom");
+            exit(1);
+        }
+
+        /* Set peer name: */
+        if (connect(sockfd,
+            (struct sockaddr *)&their_addr, sizeof(struct sockaddr)) == -1) {
+            perror("connect");
+            exit(1);
+        }
+
         /* Main connection loop - echo data until end-of-transmission: */
         num_sent = num_rcvd = packets_sent = packets_rcvd = 0;
-        while ((numbytes = recvfrom(sockfd, buf, MAXBUFLEN-1, 0,
-            (struct sockaddr *)&their_addr, &addr_len)) != 0) {
+        do {
+            /* Check recv error: */
             if (numbytes == -1) {
                 /* Interrupted by a signal: */
                 if (errno == EINTR) { break; }
 
-                perror("recvfrom");
+                perror("recv");
                 exit(1);
             }
+            buf[numbytes] = '\0';
 
             /* Statistics - recv: */
             packets_rcvd++;
             num_rcvd += numbytes;
 
             /* Echo data to client: */
-            if (-1 ==
-                (numbytes = sendto(sockfd, buf, numbytes, 0,
-                (struct sockaddr *)&their_addr, sizeof(struct sockaddr)))) {
-                perror("sendto");
+            if (send(sockfd, buf, strlen(buf), 0) == -1) {
+                perror("send");
                 exit(1);
             }
 
             /* Statistics - send: */
             packets_sent++;
-            num_sent += numbytes;
+            num_sent += strlen(buf);
 
             /* Set timeout alarm: */
             alarm(2);
-        }
+
+            /* Receive data from client: */
+        } while ((numbytes = recv(sockfd, buf, MAXBUFLEN-1, 0)) != 0);
 
         /* Turn alarm off: */
         alarm(0);
+
+        /* Unset peer name: */
+        their_addr.sin_family = AF_UNSPEC;
+        if (connect(sockfd,
+            (struct sockaddr *)&their_addr, sizeof(struct sockaddr)) == -1) {
+            perror("connect");
+            exit(1);
+        }
+        close(sockfd);
 
         /* Print statistics: */
         fprintf(stderr, "Packets from: %s\n", inet_ntoa(their_addr.sin_addr));
@@ -107,7 +131,6 @@ int main(void)
         fprintf(stderr, "Number of packets received: %d\n", packets_rcvd);
         fprintf(stderr, "Number of bytes received: %d\n", num_rcvd);
     }
-    close(sockfd);
 
     return 0;
 }

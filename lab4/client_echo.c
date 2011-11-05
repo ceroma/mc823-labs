@@ -35,6 +35,16 @@ int main(int argc, char *argv[])
         exit(1);
     }
 
+    /* Guarantee standard I/O is line buffered: */
+    if (setvbuf(stdin, (char *) NULL, _IOLBF, 0)) {
+        perror("setvbuf");
+        exit(1);
+    }
+    if (setvbuf(stdout, (char *) NULL, _IOLBF, 0)) {
+        perror("setvbuf");
+        exit(1);
+    }
+
     if ((he = gethostbyname(argv[1])) == NULL) {  /* get the host info */
         perror("gethostbyname");
         exit(1);
@@ -70,16 +80,18 @@ int main(int argc, char *argv[])
             exit(1);
         }
 
+        /* Make write stream line buffered: */
+        if (setvbuf(wsock, (char *) NULL, _IOLBF, 0)) {
+            perror("setvbuf");
+            exit(1);
+        }
+
         /* Read stdin until EOF: */
         num_sent = lines_sent = max_size = 0;
         while (fgets(buf, MAXDATASIZE, stdin)) {
             /* Send data to server: */
             if (fputs(buf, wsock) == EOF) {
                 fprintf(stderr, "fputs: error writing to socket\n");
-                exit(1);
-            }
-            if (fflush(wsock) == EOF) {
-                perror("fflush");
                 exit(1);
             }
 
@@ -111,13 +123,15 @@ int main(int argc, char *argv[])
         exit(1);
     }
 
+    /* Make read stream line buffered: */
+    if (setvbuf(rsock, (char *) NULL, _IOLBF, 0)) {
+        perror("setvbuf");
+        exit(1);
+    }
+
     /* Echo data received from server: */
     num_rcvd = lines_rcvd = 0;
     while(fgets(buf, MAXDATASIZE, rsock)) {
-        if (fflush(rsock) == EOF) {
-            perror("fflush");
-            exit(1);
-        }
         fputs(buf, stdout);
 
         /* Statistics - recv: */

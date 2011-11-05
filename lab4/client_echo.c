@@ -19,9 +19,10 @@
 
 int main(int argc, char *argv[])
 {
+    fd_set readfds;
     clock_t t1, t2;
     double time_diff;
-    int sockfd;
+    int sockfd, nfds;
     int num_sent, num_rcvd;
     int size_sent, max_size;
     int lines_sent, lines_rcvd;
@@ -90,6 +91,12 @@ int main(int argc, char *argv[])
         exit(1);
     }
 
+    /* Initialize I/O multiplexing: */
+    nfds = sockfd + 1;
+    FD_ZERO(&readfds);
+    FD_SET(sockfd, &readfds);
+    FD_SET(fileno(stdin), &readfds);
+
     /* Start counter: */
     if ((t1 = times(NULL)) == (clock_t) -1) {
         perror("times");
@@ -98,39 +105,62 @@ int main(int argc, char *argv[])
 
     /* Read stdin until EOF: */
     num_sent = num_rcvd = lines_sent = lines_rcvd = max_size = 0;
-    while (fgets(buf, MAXDATASIZE, stdin)) {
-        /* Send data to server: */
-        if (fputs(buf, wsock) == EOF) {
-            fprintf(stderr, "fputs: error writing to socket\n");
+    while (!feof(stdin) || !feof(rsock)) {
+        /* Specify file descriptors to be checked for being ready: */
+        FD_ZERO(&readfds);
+        if (!feof(rsock)) FD_SET(sockfd, &readfds);
+        if (!feof(stdin)) FD_SET(fileno(stdin), &readfds);
+
+        /* Wait until one of the inputs become ready for read: */
+        if (select(nfds, &readfds, NULL, NULL, NULL) == -1) {
+            perror("select");
             exit(1);
         }
 
-        /* Statistics - send: */
-        lines_sent++;
-        size_sent = strlen(buf);
-        num_sent += size_sent;
-        max_size = (size_sent > max_size) ? size_sent : max_size;
+        /* Standard input is ready: */
+        if (FD_ISSET(fileno(stdin), &readfds)) {
+            if (!fgets(buf, MAXDATASIZE, stdin)) {
+                /* Disallow further transmissions: */
+                if (shutdown(sockfd, SHUT_WR) == -1) {
+                    perror("shutdown");
+                    exit(1);
+                }
+                continue;
+            }
 
-        /* Echo data received from server: */
-        fgets(buf, MAXDATASIZE, rsock);
-        fputs(buf, stdout);
+            /* Send data to server: */
+            if (fputs(buf, wsock) == EOF) {
+                fprintf(stderr, "fputs: error writing to socket\n");
+                exit(1);
+            }
 
-        /* Statistics - recv: */
-        lines_rcvd++;
-        num_rcvd += strlen(buf);
+            /* Statistics - send: */
+            lines_sent++;
+            size_sent = strlen(buf);
+            num_sent += size_sent;
+            max_size = (size_sent > max_size) ? size_sent : max_size;
+        }
+
+        /* Socket is ready: */
+        if (FD_ISSET(sockfd, &readfds)) {
+            if (!fgets(buf, MAXDATASIZE, rsock)) {
+                continue;
+            }
+
+            /* Echo data received from server: */
+            fputs(buf, stdout);
+
+            /* Statistics - recv: */
+            lines_rcvd++;
+            num_rcvd += strlen(buf);
+        }
     }
-
-    /* Disallow further transmissions: */
-    if (shutdown(sockfd, SHUT_WR) == -1) {
-        perror("shutdown");
-        exit(1);
-    }
-    free(wsock);
 
     if (close(sockfd) == -1) {
         perror("close");
         exit(1);
     }
+    free(wsock);
     free(rsock);
 
     /* Stop counter: */

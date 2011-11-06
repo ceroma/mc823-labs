@@ -172,8 +172,6 @@ main()
             continue;
         }
 
-        log_conn(their_addr.sin_addr);
-
         /* Associate a write stream with the socket file descriptor: */
         if ((wsock = fdopen(new_fd, "w")) == NULL) {
             log_error("fdopen");
@@ -214,6 +212,7 @@ main()
             free(wsock);
 
             /* Print statistics: */
+            log_conn(their_addr.sin_addr);
             log_stats(num_rcvd, lines_rcvd);
             exit(0);
         }

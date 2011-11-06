@@ -89,7 +89,7 @@ void log_message(char *message) {
         exit(1);
     }
 
-   /* Logs message: */
+   /* Log message: */
    fprintf(fp, "%s %s\n", buf, message);
    fclose(fp);
 }

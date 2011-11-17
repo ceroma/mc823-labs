@@ -1,5 +1,5 @@
 /*
-** client.c -- a stream socket client demo
+** cl_tcp_echo.c -- a stream socket client demo
 */
 
 #include <stdio.h>

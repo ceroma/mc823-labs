@@ -1,5 +1,5 @@
 /*
-** server.c -- a stream socket server demo
+** sv_tcp_echo.c -- a stream socket server demo
 */
 
 #include <stdio.h>

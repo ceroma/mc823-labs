@@ -56,6 +56,10 @@ int main(int argc, char *argv[])
         perror("close");
         exit(1);
     }
+    if (close(sockfd) == -1) {
+        perror("close");
+        exit(1);
+    }
     free(rsock);
     free(wsock);
 

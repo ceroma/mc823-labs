@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/select.h>
 #include <unistd.h>
 #include "myinetd.h"
 
@@ -63,14 +64,12 @@ services_t read_config() {
     return s;
 }
 
-int main(int argc, char *argv[]) {
+/**
+ * Prints details of the services in s.
+ */
+void print_services(services_t s) {
     int i;
-    services_t s;
 
-    /* Reads myinetd.conf: */
-    s = read_config();
-
-    /* Verify read data: */
     printf("Services:\n");
     printf("i: Name\t\tPort\tSockFd\tType\tPath\n");
     for (i = 0; i < s.N; i++) {
@@ -83,6 +82,48 @@ int main(int argc, char *argv[]) {
             s.service[i].protocol == TCP ? "tcp" : "udp",
             s.service[i].path
         );
+    }
+}
+
+int main(int argc, char *argv[]) {
+    int i, chosen;
+    int maxfd, new_fd;
+    services_t s;
+    fd_set readfds;
+
+    /* Reads myinetd.conf: */
+    s = read_config();
+
+    /* Find greater socket descriptor: */
+    maxfd = 0;
+    for (i = 0; i < s.N; i++) {
+        maxfd = (maxfd < s.service[i].sockfd) ? s.service[i].sockfd : maxfd;
+    }
+
+    /* Execute connection requests: */
+    while (1) {
+        /* Specify file descriptors to be checked for being ready: */
+        FD_ZERO(&readfds);
+        for (i = 0; i < s.N; i++) {
+            FD_SET(s.service[i].sockfd, &readfds);
+        }
+
+        /* Wait until one of the inputs become ready for read: */
+        if (select(maxfd + 1, &readfds, NULL, NULL, NULL) == -1) {
+            perror("select");
+            exit(1);
+        }
+
+        /* Find out which service was called: */
+        for (i = 0; i < s.N; i++) {
+            if (FD_ISSET(s.service[i].sockfd, &readfds)) {
+                chosen = i;
+            }
+        }
+
+        /* Accept chosen connection: */
+        new_fd = tcp_accept(s.service[chosen].sockfd);
+        close(new_fd);
     }
 
     /* Free everything: */

@@ -36,3 +36,8 @@ service_t read_service(char * line);
  * Reads and stores all services in myinetd.conf.
  */
 services_t read_config();
+
+/**
+ * Prints details of the services in s.
+ */
+void print_services(services_t s);

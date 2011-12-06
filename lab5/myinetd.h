@@ -12,6 +12,7 @@
  * Myinetd service type.
  */
 typedef struct {
+    int pid;
     int port;
     int sockfd;
     socktype_t protocol;

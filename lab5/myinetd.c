@@ -12,6 +12,9 @@ service_t read_service(char * line) {
     service_t service;
     char * field;
 
+    /* Initialize PID: */
+    service.pid = 0;
+
     /* Read name: */
     field = strtok(line, SPACE_DELIMS);
     strcpy(service.name, field); 
@@ -105,7 +108,9 @@ int main(int argc, char *argv[]) {
         /* Specify file descriptors to be checked for being ready: */
         FD_ZERO(&readfds);
         for (i = 0; i < s.N; i++) {
-            FD_SET(s.service[i].sockfd, &readfds);
+            if (!s.service[i].pid) {
+                FD_SET(s.service[i].sockfd, &readfds);
+            }
         }
 
         /* Wait until one of the inputs become ready for read: */
@@ -122,8 +127,14 @@ int main(int argc, char *argv[]) {
         }
 
         /* Accept chosen connection: */
-        new_fd = tcp_accept(s.service[chosen].sockfd);
-        close(new_fd);
+        if (s.service[chosen].protocol == TCP) {
+            new_fd = tcp_accept(s.service[chosen].sockfd);
+            close(new_fd);
+        } else {
+            FD_CLR(s.service[chosen].sockfd, &readfds);
+            udp_accept(s.service[chosen].sockfd);
+            s.service[chosen].pid = 1;
+        }
     }
 
     /* Free everything: */

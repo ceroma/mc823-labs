@@ -89,10 +89,9 @@ void print_services(services_t s) {
 }
 
 int main(int argc, char *argv[]) {
-    int i, chosen;
-    int maxfd, new_fd;
     services_t s;
     fd_set readfds;
+    int i, maxfd, new_fd;
 
     /* Reads myinetd.conf: */
     s = read_config();
@@ -119,21 +118,18 @@ int main(int argc, char *argv[]) {
             exit(1);
         }
 
-        /* Find out which service was called: */
+        /* Find out which services were called and execute them: */
         for (i = 0; i < s.N; i++) {
             if (FD_ISSET(s.service[i].sockfd, &readfds)) {
-                chosen = i;
+                if (s.service[i].protocol == TCP) {
+                    new_fd = tcp_accept(s.service[i].sockfd);
+                    close(new_fd);
+                } else {
+                    FD_CLR(s.service[i].sockfd, &readfds);
+                    udp_accept(s.service[i].sockfd);
+                    s.service[i].pid = 1;
+                }
             }
-        }
-
-        /* Accept chosen connection: */
-        if (s.service[chosen].protocol == TCP) {
-            new_fd = tcp_accept(s.service[chosen].sockfd);
-            close(new_fd);
-        } else {
-            FD_CLR(s.service[chosen].sockfd, &readfds);
-            udp_accept(s.service[chosen].sockfd);
-            s.service[chosen].pid = 1;
         }
     }
 

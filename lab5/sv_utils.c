@@ -6,23 +6,32 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include "sv_utils.h"
 
 #define BACKLOG     10   /* how many pending connections queue will hold */
 
 /**
- * Returns a TCP socket listening to connections from the given port.
+ * Returns a TCP socket listening to connections from the given port or an UDP
+ * datagram.
  */
-int tcp_socket(int port) {
-    int sockfd, yes;
+int tcpudp_socket(int port, socktype_t type) {
+    int sockfd, yes, socktype;
     struct sockaddr_in my_addr;    /* my address information */
 
-    if ((sockfd = socket(AF_INET, SOCK_STREAM, 0)) == -1) {
+    /* Create socket: */
+    socktype = (type == TCP) ? SOCK_STREAM : SOCK_DGRAM;
+    if ((sockfd = socket(AF_INET, socktype, 0)) == -1) {
         perror("socket");
         exit(1);
     }
-    if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int)) == -1) {
-        perror("setsockopt");
-        exit(1);
+
+    /* TCP - allow multiple connections: */
+    if (type == TCP) {
+        if (-1 ==
+            setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int))) {
+            perror("setsockopt");
+            exit(1);
+        }
     }
 
     my_addr.sin_family = AF_INET;         /* host byte order */
@@ -30,18 +39,36 @@ int tcp_socket(int port) {
     my_addr.sin_addr.s_addr = INADDR_ANY; /* automatically fill with my IP */
     bzero(&(my_addr.sin_zero), 8);        /* zero the rest of the struct */
 
+    /* Assign address to socket: */
     if (-1 ==
         bind(sockfd, (struct sockaddr *)&my_addr, sizeof(struct sockaddr))) {
         perror("bind");
         exit(1);
     }
 
-    if (listen(sockfd, BACKLOG) == -1) {
-        perror("listen");
-        exit(1);
+    /* TCP - mark as listening to incoming connections: */
+    if (type == TCP) {
+        if (listen(sockfd, BACKLOG) == -1) {
+            perror("listen");
+            exit(1);
+        }
     }
 
     return sockfd;
+}
+
+/**
+ * Returns an UDP datagram.
+ */
+int udp_socket(int port) {
+    return tcpudp_socket(port, UDP);
+}
+
+/**
+ * Returns a TCP socket listening to connections from the given port.
+ */
+int tcp_socket(int port) {
+    return tcpudp_socket(port, TCP);
 }
 
 /**

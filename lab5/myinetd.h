@@ -13,6 +13,7 @@
  */
 typedef struct {
     int port;
+    int sockfd;
     socktype_t protocol;
     char name[MAX_NAME_SIZE];
     char path[MAX_PATH_SIZE];

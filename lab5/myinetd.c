@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 #include "myinetd.h"
 
 /**
@@ -31,6 +32,9 @@ service_t read_service(char * line) {
     strtok(NULL, SPACE_DELIMS);
     field = strtok(NULL, SPACE_DELIMS);
     strcpy(service.path, field); 
+
+    /* Create socket: */
+    service.sockfd = tcpudp_socket(service.port, service.protocol);
 
     return service;
 }
@@ -68,19 +72,23 @@ int main(int argc, char *argv[]) {
 
     /* Verify read data: */
     printf("Services:\n");
-    printf("i: Name\t\tPort\tType\tPath\n");
+    printf("i: Name\t\tPort\tSockFd\tType\tPath\n");
     for (i = 0; i < s.N; i++) {
         printf(
-            "%d: %s\t%d\t%s\t%s\n",
+            "%d: %s\t%d\t%d\t%s\t%s\n",
             i,
             s.service[i].name,
             s.service[i].port,
+            s.service[i].sockfd,
             s.service[i].protocol == TCP ? "tcp" : "udp",
             s.service[i].path
         );
     }
 
     /* Free everything: */
+    for (i = 0; i < s.N; i++) {
+        close(s.service[i].sockfd);
+    }
     free(s.service);
 
     return 0;

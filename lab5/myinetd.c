@@ -88,6 +88,34 @@ void print_services(services_t s) {
     }
 }
 
+/**
+ * Executes a given service.
+ */
+void execute_service(service_t service, int new_fd) {
+    int i = 0;
+    char * const args[] = {'\0'};
+
+    /* Close all descriptors, except the connected socket: */
+    do {
+       if (i != new_fd) close(i);
+    } while (++i < getdtablesize());
+
+    /* Duplicate connected socket over stdin, stdout and stderr: */
+    for (i = 0; i < 3; i++) {
+        if (dup2(new_fd, i) == -1) {
+            perror("dup2");
+            exit(1);
+        }
+    }
+
+    /* Execute service: */
+    if (execv(service.path, args) == -1) {
+        perror("execv");
+        exit(1);
+    }
+    exit(0);
+}
+
 int main(int argc, char *argv[]) {
     services_t s;
     fd_set readfds;
@@ -123,6 +151,7 @@ int main(int argc, char *argv[]) {
             if (FD_ISSET(s.service[i].sockfd, &readfds)) {
                 if (s.service[i].protocol == TCP) {
                     new_fd = tcp_accept(s.service[i].sockfd);
+                    if (!fork()) { execute_service(s.service[i], new_fd); }
                     close(new_fd);
                 } else {
                     FD_CLR(s.service[i].sockfd, &readfds);

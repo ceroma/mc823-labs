@@ -42,3 +42,8 @@ services_t read_config();
  * Prints details of the services in s.
  */
 void print_services(services_t s);
+
+/**
+ * Executes a given service.
+ */
+void execute_service(service_t service, int new_fd);

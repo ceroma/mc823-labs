@@ -107,6 +107,7 @@ void execute_service(service_t service, int new_fd) {
             exit(1);
         }
     }
+    close(new_fd);
 
     /* Execute service: */
     if (execv(service.path, args) == -1) {

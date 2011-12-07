@@ -94,6 +94,10 @@ int tcpudp_accept(int sockfd, socktype_t type) {
             perror("recvfrom");
             exit(1);
         }
+        if (connect(sockfd, (struct sockaddr *)&their_addr, sin_size) == -1) {
+            perror("connect");
+            exit(1);
+        }
     }
 
     printf(

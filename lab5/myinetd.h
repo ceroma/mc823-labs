@@ -47,3 +47,9 @@ void print_services(services_t s);
  * Executes a given service.
  */
 void execute_service(service_t service, int new_fd);
+
+/**
+ * Handles the death of the services. If the dead child was an UDP service,
+ * unblocks it's socket descriptor.
+ */
+void signal_handler(int sig);

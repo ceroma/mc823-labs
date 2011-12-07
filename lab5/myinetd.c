@@ -1,9 +1,13 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <errno.h>
 #include <sys/select.h>
+#include <sys/wait.h>
 #include <unistd.h>
 #include "myinetd.h"
+
+services_t s;
 
 /**
  * Reads the current line of myinetd.conf and returns a related service_t.
@@ -117,13 +121,40 @@ void execute_service(service_t service, int new_fd) {
     exit(0);
 }
 
+/**
+ * Handles the death of the services. If the dead child was an UDP service,
+ * unblocks it's socket descriptor.
+ */
+void signal_handler(int sig) {
+    int i;
+    pid_t pid;
+
+    /* Only handle dead children: */
+    if (sig != SIGCHLD) {
+        return;
+    }
+
+    /* Recover child's PID: */
+    pid = wait(NULL);
+
+    /* Restores UDP service: */
+    for (i = 0; i < s.N; i++) {
+        if (s.service[i].pid == pid) {
+            s.service[i].pid = 0;
+            s.service[i].sockfd = udp_socket(s.service[i].port);
+        }
+    }
+}
+
 int main(int argc, char *argv[]) {
-    services_t s;
     fd_set readfds;
     int i, maxfd, new_fd;
 
     /* Reads myinetd.conf: */
     s = read_config();
+
+    /* Set up SIGCHLD handler: */
+    signal(SIGCHLD, signal_handler);
 
     /* Find greater socket descriptor: */
     maxfd = 0;
@@ -143,6 +174,8 @@ int main(int argc, char *argv[]) {
 
         /* Wait until one of the inputs become ready for read: */
         if (select(maxfd + 1, &readfds, NULL, NULL, NULL) == -1) {
+            if (errno == EINTR) continue;
+
             perror("select");
             exit(1);
         }
@@ -157,10 +190,16 @@ int main(int argc, char *argv[]) {
                 } else {
                     FD_CLR(s.service[i].sockfd, &readfds);
                     udp_accept(s.service[i].sockfd);
-                    s.service[i].pid = 1;
+                    if (!(s.service[i].pid = fork())) {
+                        execute_service(s.service[i], s.service[i].sockfd);
+                    }
+                    close(s.service[i].sockfd);
                 }
             }
         }
+
+        /* Clean up all child processes: */
+        while (waitpid(-1, NULL, WNOHANG) > 0);
     }
 
     /* Free everything: */

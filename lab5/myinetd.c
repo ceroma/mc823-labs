@@ -98,10 +98,11 @@ void print_services(services_t s) {
 void execute_service(service_t service, int new_fd) {
     int i = 0;
     char * const args[] = {'\0'};
+    printf("server: executing %s\n", service.name);
 
     /* Close all descriptors, except the connected socket: */
     do {
-       if (i != new_fd) close(i);
+        if (i != new_fd) close(i);
     } while (++i < getdtablesize());
 
     /* Duplicate connected socket over stdin, stdout and stderr: */

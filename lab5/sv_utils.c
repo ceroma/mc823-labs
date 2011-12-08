@@ -101,7 +101,7 @@ int tcpudp_accept(int sockfd, socktype_t type) {
         }
     }
 
-    log_conn("myinetd", their_addr);
+    log_conn("myinetd", &their_addr);
 
     return new_fd;
 }

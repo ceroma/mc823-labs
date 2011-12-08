@@ -9,6 +9,7 @@
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/socket.h>
+#include "daemon.h"
 
 #define MAXDATASIZE 100  /* max number of bytes we can get at once */
 
@@ -25,6 +26,9 @@ int main(int argc, char *argv[])
         perror("getpeername");
         exit(1);
     }
+
+    /* Log connection: */
+    log_conn("udp_daytime", (struct sockaddr_in *)&their_addr);
 
     /* Prepare daytime information: */
     time(&now);

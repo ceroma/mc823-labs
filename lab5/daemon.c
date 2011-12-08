@@ -88,10 +88,10 @@ void log_message(char *caller, char *message) {
 /**
  * Logs a new connection to the server.
  */
-void log_conn(char *caller, struct sockaddr_in in) {
+void log_conn(char *caller, struct sockaddr_in *in) {
     char buf[64];
-    int port = ntohs(in.sin_port);
-    sprintf(buf, "Client: %s - %d\n", inet_ntoa(in.sin_addr), port);
+    int port = ntohs(in->sin_port);
+    sprintf(buf, "Client: %s - %d\n", inet_ntoa(in->sin_addr), port);
     log_message(caller, buf);
 }
 

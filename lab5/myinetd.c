@@ -14,6 +14,7 @@ services_t s;
  * Reads the current line of myinetd.conf and returns a related service_t.
  */
 service_t read_service(char * line) {
+    int i = 0;
     service_t service;
     char * field;
 
@@ -41,6 +42,16 @@ service_t read_service(char * line) {
     strtok(NULL, SPACE_DELIMS);
     field = strtok(NULL, SPACE_DELIMS);
     strcpy(service.path, field); 
+
+    /* Read arguments: */
+    i = 0;
+    service.args = malloc(sizeof(char *));
+    while ((field = strtok(NULL, SPACE_DELIMS)) != NULL) {
+        service.args[i] = (char *) malloc(strlen(field)+1);
+        strcpy(service.args[i++], field);
+        service.args = realloc(service.args, (i + 1) * sizeof(char *));
+    }
+    service.args[i] = (char *)NULL;
 
     /* Create socket: */
     service.sockfd = tcpudp_socket(service.port, service.protocol);
@@ -76,13 +87,13 @@ services_t read_config() {
  * Prints details of the services in s.
  */
 void print_services(services_t s) {
-    int i;
+    int i, j;
 
     printf("Services:\n");
-    printf("i: Name\t\tPort\tSockFd\tType\tPath\n");
+    printf("i: Name\t\tPort\tSockFd\tType\tPath\tArgs\n");
     for (i = 0; i < s.N; i++) {
         printf(
-            "%d: %s\t%d\t%d\t%s\t%s\n",
+            "%d: %s\t%d\t%d\t%s\t%s\t",
             i,
             s.service[i].name,
             s.service[i].port,
@@ -90,6 +101,10 @@ void print_services(services_t s) {
             s.service[i].protocol == TCP ? "tcp" : "udp",
             s.service[i].path
         );
+        for (j = 0; s.service[i].args[j]; j++) {
+            printf("%s ", s.service[i].args[j]);
+        }
+        printf("\n");
     }
 }
 
@@ -98,7 +113,6 @@ void print_services(services_t s) {
  */
 void execute_service(service_t service, int new_fd) {
     int i = 0;
-    char * const args[] = {'\0'};
     printf("server: executing %s\n", service.name);
 
     /* Close all descriptors, except the connected socket: */
@@ -116,7 +130,7 @@ void execute_service(service_t service, int new_fd) {
     close(new_fd);
 
     /* Execute service: */
-    if (execv(service.path, args) == -1) {
+    if (execv(service.path, service.args) == -1) {
         log_error("myinetd", "execv");
         exit(1);
     }
@@ -150,7 +164,7 @@ void signal_handler(int sig) {
 
 int main(int argc, char *argv[]) {
     fd_set readfds;
-    int i, maxfd, new_fd;
+    int i, j, maxfd, new_fd;
 
     daemon_init();
 
@@ -208,6 +222,9 @@ int main(int argc, char *argv[]) {
 
     /* Free everything: */
     for (i = 0; i < s.N; i++) {
+        for (j = 0; s.service[i].args[j]; j++) {
+            free(s.service[i].args[j]);
+        }
         close(s.service[i].sockfd);
     }
     free(s.service);

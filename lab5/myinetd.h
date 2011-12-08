@@ -1,5 +1,6 @@
 #include "sv_utils.h"
 
+#define MAX_ARGS_NUM  20
 #define MAX_NAME_SIZE 20
 #define MAX_PATH_SIZE 100
 #define MAX_LINE_SIZE 200
@@ -18,6 +19,7 @@ typedef struct {
     socktype_t protocol;
     char name[MAX_NAME_SIZE];
     char path[MAX_PATH_SIZE];
+    char **args;
 } service_t;
 
 /**

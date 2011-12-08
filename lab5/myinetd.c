@@ -44,7 +44,6 @@ service_t read_service(char * line) {
     strcpy(service.path, field); 
 
     /* Read arguments: */
-    i = 0;
     service.args = malloc(sizeof(char *));
     while ((field = strtok(NULL, SPACE_DELIMS)) != NULL) {
         service.args[i] = (char *) malloc(strlen(field)+1);

@@ -6,7 +6,7 @@
 
 #define SPACE_DELIMS " \t\n"
 
-#define MYINETD_CONF_PATH "./myinetd.conf"
+#define MYINETD_CONF_PATH "/home/ec2006/ra059582/mc823/git/mc823-labs/lab5/myinetd.conf"
 
 /**
  * Myinetd service type.

@@ -6,6 +6,7 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include "daemon.h"
 #include "sv_utils.h"
 
 #define BACKLOG     10   /* how many pending connections queue will hold */
@@ -21,7 +22,7 @@ int tcpudp_socket(int port, socktype_t type) {
     /* Create socket: */
     socktype = (type == TCP) ? SOCK_STREAM : SOCK_DGRAM;
     if ((sockfd = socket(AF_INET, socktype, 0)) == -1) {
-        perror("socket");
+        log_error("myinetd", "socket");
         exit(1);
     }
 
@@ -29,7 +30,7 @@ int tcpudp_socket(int port, socktype_t type) {
     if (type == TCP) {
         if (-1 ==
             setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int))) {
-            perror("setsockopt");
+            log_error("myinetd", "setsockopt");
             exit(1);
         }
     }
@@ -42,14 +43,14 @@ int tcpudp_socket(int port, socktype_t type) {
     /* Assign address to socket: */
     if (-1 ==
         bind(sockfd, (struct sockaddr *)&my_addr, sizeof(struct sockaddr))) {
-        perror("bind");
+        log_error("myinetd", "bind");
         exit(1);
     }
 
     /* TCP - mark as listening to incoming connections: */
     if (type == TCP) {
         if (listen(sockfd, BACKLOG) == -1) {
-            perror("listen");
+            log_error("myinetd", "listen");
             exit(1);
         }
     }
@@ -85,25 +86,22 @@ int tcpudp_accept(int sockfd, socktype_t type) {
     if (type == TCP) {
         if ((new_fd = accept(sockfd, (struct sockaddr *)&their_addr, &sin_size))
             == -1) {
-            perror("accept");
+            log_error("myinetd", "accept");
             exit(1);
         }
     } else {
         if (recvfrom(sockfd, NULL, 0, MSG_PEEK,
             (struct sockaddr *)&their_addr, &sin_size) == -1) {
-            perror("recvfrom");
+            log_error("myinetd", "recvfrom");
             exit(1);
         }
         if (connect(sockfd, (struct sockaddr *)&their_addr, sin_size) == -1) {
-            perror("connect");
+            log_error("myinetd", "connect");
             exit(1);
         }
     }
 
-    printf(
-        "server: got connection from %s\n",
-        inet_ntoa(their_addr.sin_addr)
-    );
+    log_conn("myinetd", their_addr);
 
     return new_fd;
 }

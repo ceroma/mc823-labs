@@ -5,6 +5,7 @@
 #include <sys/select.h>
 #include <sys/wait.h>
 #include <unistd.h>
+#include "daemon.h"
 #include "myinetd.h"
 
 services_t s;
@@ -108,7 +109,7 @@ void execute_service(service_t service, int new_fd) {
     /* Duplicate connected socket over stdin, stdout and stderr: */
     for (i = 0; i < 3; i++) {
         if (dup2(new_fd, i) == -1) {
-            perror("dup2");
+            log_error("myinetd", "dup2");
             exit(1);
         }
     }
@@ -116,7 +117,7 @@ void execute_service(service_t service, int new_fd) {
 
     /* Execute service: */
     if (execv(service.path, args) == -1) {
-        perror("execv");
+        log_error("myinetd", "execv");
         exit(1);
     }
     exit(0);
@@ -151,6 +152,8 @@ int main(int argc, char *argv[]) {
     fd_set readfds;
     int i, maxfd, new_fd;
 
+    daemon_init();
+
     /* Reads myinetd.conf: */
     s = read_config();
 
@@ -177,7 +180,7 @@ int main(int argc, char *argv[]) {
         if (select(maxfd + 1, &readfds, NULL, NULL, NULL) == -1) {
             if (errno == EINTR) continue;
 
-            perror("select");
+            log_error("myinetd", "select");
             exit(1);
         }
 

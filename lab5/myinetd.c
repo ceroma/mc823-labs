@@ -9,6 +9,7 @@
 #include "myinetd.h"
 
 services_t s;
+list_t exec_list;
 
 /**
  * Reads the current line of myinetd.conf and returns a related service_t.
@@ -108,6 +109,39 @@ void print_services(services_t s) {
 }
 
 /**
+ * Logs the service and ID that will start running.
+ */
+void log_service_start(char *service_name) {
+    char buf[64];
+    sprintf(buf, "Starting %s - %d\n", service_name, exec_list.N);
+    log_message("myinetd", buf);
+}
+
+/**
+ * Logs the service and ID that just stopped.
+ */
+void log_service_stop(char *service_name, int id) {
+    char buf[64];
+    sprintf(buf, "Stopping %s - %d\n", service_name, id);
+    log_message("myinetd", buf);
+}
+
+/**
+ * Associates a recently executed service with an internal ID and adds it to
+ * the execution list.
+ */
+void list_add(int pid, int service) {
+    struct list_node * node;
+
+    node = (struct list_node *) malloc(sizeof(struct list_node));
+    node->pid = pid;
+    node->service = service;
+    node->id = exec_list.N++;
+    node->next = exec_list.head;
+    exec_list.head = node;
+}
+
+/**
  * Executes a given service.
  */
 void execute_service(service_t service, int new_fd) {
@@ -126,7 +160,9 @@ void execute_service(service_t service, int new_fd) {
             exit(1);
         }
     }
-    close(new_fd);
+    if (new_fd > 3) {
+        close(new_fd);
+    }
 
     /* Execute service: */
     if (execv(service.path, service.args) == -1) {
@@ -143,6 +179,7 @@ void execute_service(service_t service, int new_fd) {
 void signal_handler(int sig) {
     int i;
     pid_t pid;
+    struct list_node * node;
 
     /* Only handle dead children: */
     if (sig != SIGCHLD) {
@@ -152,23 +189,35 @@ void signal_handler(int sig) {
     /* Recover child's PID: */
     pid = wait(NULL);
 
-    /* Restores UDP service: */
-    for (i = 0; i < s.N; i++) {
-        if (s.service[i].pid == pid) {
-            s.service[i].pid = 0;
-            s.service[i].sockfd = udp_socket(s.service[i].port);
+    /* Log service's death: */
+    for (node = exec_list.head; node; node = node->next) {
+        if (node->pid == pid) {
+            i = node->service;
+            log_service_stop(s.service[i].name, node->id);
+            break;
         }
+    }
+
+    /* Restore UDP service: */
+    if (s.service[i].protocol == UDP) {
+        s.service[i].pid = 0;
+        s.service[i].sockfd = udp_socket(s.service[i].port);
     }
 }
 
 int main(int argc, char *argv[]) {
     fd_set readfds;
     int i, j, maxfd, new_fd;
+    struct list_node * node;
 
     daemon_init();
 
     /* Reads myinetd.conf: */
     s = read_config();
+
+    /* Init execution list: */
+    exec_list.N = 1;
+    exec_list.head = NULL;
 
     /* Set up SIGCHLD handler: */
     signal(SIGCHLD, signal_handler);
@@ -184,7 +233,7 @@ int main(int argc, char *argv[]) {
         /* Specify file descriptors to be checked for being ready: */
         FD_ZERO(&readfds);
         for (i = 0; i < s.N; i++) {
-            if (!s.service[i].pid) {
+            if (!s.service[i].pid || s.service[i].protocol == TCP) {
                 FD_SET(s.service[i].sockfd, &readfds);
             }
         }
@@ -202,16 +251,15 @@ int main(int argc, char *argv[]) {
             if (FD_ISSET(s.service[i].sockfd, &readfds)) {
                 if (s.service[i].protocol == TCP) {
                     new_fd = tcp_accept(s.service[i].sockfd);
-                    if (!fork()) { execute_service(s.service[i], new_fd); }
-                    close(new_fd);
                 } else {
-                    FD_CLR(s.service[i].sockfd, &readfds);
-                    udp_accept(s.service[i].sockfd);
-                    if (!(s.service[i].pid = fork())) {
-                        execute_service(s.service[i], s.service[i].sockfd);
-                    }
-                    close(s.service[i].sockfd);
+                    new_fd = udp_accept(s.service[i].sockfd);
                 }
+                log_service_start(s.service[i].name);
+                if (!(s.service[i].pid = fork())) {
+                    execute_service(s.service[i], new_fd);
+                }
+                list_add(s.service[i].pid, i);
+                close(new_fd);
             }
         }
 
@@ -225,6 +273,11 @@ int main(int argc, char *argv[]) {
             free(s.service[i].args[j]);
         }
         close(s.service[i].sockfd);
+    }
+    while (exec_list.head) {
+        node = exec_list.head;
+        exec_list.head = node->next;
+        free(node);
     }
     free(s.service);
 

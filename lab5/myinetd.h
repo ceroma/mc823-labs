@@ -6,7 +6,7 @@
 
 #define SPACE_DELIMS " \t\n"
 
-#define MYINETD_CONF_PATH "/home/ec2006/ra059582/mc823/git/mc823-labs/lab5/myinetd.conf"
+#define MYINETD_CONF_PATH "/home/kerhott/lab5/myinetd.conf"
 
 /**
  * Myinetd service type.
@@ -30,6 +30,24 @@ typedef struct {
 } services_t;
 
 /**
+ * Node of execution list.
+ */
+struct list_node {
+    int id;
+    int pid;
+    int service;
+    struct list_node * next;
+};
+
+/**
+ * List of executed services.
+ */
+typedef struct {
+    int N;
+    struct list_node * head;
+} list_t;
+
+/**
  * Reads the current line of myinetd.conf and returns a related service_t.
  */
 service_t read_service(char * line);
@@ -43,6 +61,22 @@ services_t read_config();
  * Prints details of the services in s.
  */
 void print_services(services_t s);
+
+/**
+ * Logs the service and ID that will start running.
+ */
+void log_service_start(char *service_name);
+
+/**
+ * Logs the service and ID that just stopped.
+ */
+void log_service_stop(char *service_name, int id);
+
+/**
+ * Associates a recently executed service with an internal ID and adds it to
+ * the execution list.
+ */
+void list_add(int pid, int service);
 
 /**
  * Executes a given service.
